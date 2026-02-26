@@ -3,13 +3,15 @@ import email as email_lib
 import smtplib
 import os
 from email.mime.text import MIMEText
+from email.header import decode_header
+from html.parser import HTMLParser
 
 from django.shortcuts import render, get_object_or_404, redirect
 from django.http import JsonResponse
 from django.contrib import messages
 from openai import OpenAI
 
-from .models import IncomingEmail
+from .models import IncomingEmail, CompanyInfo
 
 # ----------------------------
 # ENV CONFIG
@@ -22,6 +24,31 @@ SMTP_PORT = int(os.getenv("SMTP_PORT", 465))
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 client = OpenAI(api_key=OPENAI_API_KEY)
+
+
+class _HTMLStripper(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self._parts = []
+
+    def handle_data(self, data):
+        self._parts.append(data)
+
+    def get_text(self):
+        return "".join(self._parts)
+
+
+def _strip_html(html):
+    s = _HTMLStripper()
+    s.feed(html)
+    return s.get_text()
+
+
+def get_system_prompt():
+    info = CompanyInfo.objects.first()
+    if info:
+        return _strip_html(info.content)
+    return "Sən professional email köməkçisisən."
 
 
 # ----------------------------
@@ -43,7 +70,10 @@ Email:
 """
     response = client.chat.completions.create(
         model="gpt-4o",
-        messages=[{"role": "user", "content": prompt}],
+        messages=[
+            {"role": "system", "content": get_system_prompt()},
+            {"role": "user", "content": prompt},
+        ],
         max_tokens=50,
         temperature=0,
     )
@@ -52,22 +82,19 @@ Email:
 
 def generate_reply(email_body, sender_email):
     prompt = f"""
-Bu emailə professional və qısa cavab yaz.
-
-Qaydalar:
-- Göndərənə müraciət: "Hörmətli {sender_email}" yazaraq başla.
-- Cavabın sonunda imza belə olmalıdır:
-  Hörmətlə,
-  X Company Satış Departamenti
-- HEÇBIR placeholder istifadə etmə. "[Adınız]", "[Pozisiyanız]", "[Göndərənin Adı]" kimi şeylər QADAĞANDIR.
-- Ton: Rəsmi və nəzakətli.
+Bu emailə cavab yaz.
+Göndərənin emaili: {sender_email}
+Göndərənə "Hörmətli {sender_email}" deyə müraciət et.
 
 Email:
 {email_body}
 """
     response = client.chat.completions.create(
         model="gpt-4o",
-        messages=[{"role": "user", "content": prompt}],
+        messages=[
+            {"role": "system", "content": get_system_prompt()},
+            {"role": "user", "content": prompt},
+        ],
         max_tokens=500,
         temperature=0.3,
     )
@@ -118,7 +145,12 @@ def fetch_emails(request):
             status, data = mail.fetch(num, "(RFC822)")
             msg = email_lib.message_from_bytes(data[0][1])
 
-            subject = msg["subject"] or "(No subject)"
+            raw_subject = msg["subject"] or "(No subject)"
+            decoded_parts = decode_header(raw_subject)
+            subject = "".join(
+                part.decode(enc or "utf-8") if isinstance(part, bytes) else part
+                for part, enc in decoded_parts
+            )
             sender = email_lib.utils.parseaddr(msg["from"])[1]
 
             body = ""

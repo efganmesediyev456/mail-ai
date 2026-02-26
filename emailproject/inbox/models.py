@@ -1,4 +1,16 @@
 from django.db import models
+from django_ckeditor_5.fields import CKEditor5Field
+
+
+class CompanyInfo(models.Model):
+    content = CKEditor5Field("Şirkət məlumatları", config_name="default")
+
+    class Meta:
+        verbose_name = "Şirkət məlumatı"
+        verbose_name_plural = "Şirkət məlumatları"
+
+    def __str__(self):
+        return "Şirkət məlumatı"
 
 
 class IncomingEmail(models.Model):

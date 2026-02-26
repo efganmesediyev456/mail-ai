@@ -1,5 +1,15 @@
 from django.contrib import admin
-from .models import IncomingEmail
+from .models import IncomingEmail, CompanyInfo
+
+
+@admin.register(CompanyInfo)
+class CompanyInfoAdmin(admin.ModelAdmin):
+    list_display = ('__str__',)
+
+    def has_add_permission(self, request):
+        if CompanyInfo.objects.exists():
+            return False
+        return super().has_add_permission(request)
 
 
 @admin.register(IncomingEmail)
