@@ -1,0 +1,64 @@
+{% extends "inbox/base.html" %}
+
+{% block title %}Gələn Qutusu{% endblock %}
+
+{% block extra_css %}
+    .email-table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .email-table th { background: #f8f9fa; text-align: left; padding: 12px 16px; font-size: 13px; color: #5f6368; border-bottom: 1px solid #e0e0e0; }
+    .email-table td { padding: 12px 16px; border-bottom: 1px solid #f0f0f0; font-size: 14px; }
+    .email-table tr:hover { background: #f8f9fa; }
+    .email-table a { color: #1a73e8; text-decoration: none; font-weight: 500; }
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 12px; font-weight: 500; }
+    .badge-sales { background: #e8f0fe; color: #1a73e8; }
+    .badge-support { background: #fce8e6; color: #d93025; }
+    .badge-accounting { background: #e6f4ea; color: #1e8e3e; }
+    .badge-hr { background: #fef7e0; color: #f9ab00; }
+    .badge-replied { background: #e6f4ea; color: #1e8e3e; }
+    .badge-pending { background: #fef7e0; color: #f9ab00; }
+    .empty { text-align: center; padding: 60px 20px; color: #999; }
+{% endblock %}
+
+{% block content %}
+    <div class="header">
+        <h1>Gələn Qutusu</h1>
+        <a href="{% url 'fetch_emails' %}" class="btn btn-success">Emailləri Yenilə</a>
+    </div>
+
+    {% if emails %}
+    <table class="email-table">
+        <thead>
+            <tr>
+                <th>Göndərən</th>
+                <th>Mövzu</th>
+                <th>Departament</th>
+                <th>Status</th>
+                <th>Tarix</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for e in emails %}
+            <tr>
+                <td>{{ e.sender }}</td>
+                <td><a href="{% url 'email_detail' e.pk %}">{{ e.subject }}</a></td>
+                <td>
+                    <span class="badge badge-{{ e.department|lower }}">{{ e.department|default:"—" }}</span>
+                </td>
+                <td>
+                    {% if e.is_replied %}
+                        <span class="badge badge-replied">Cavablandı</span>
+                    {% else %}
+                        <span class="badge badge-pending">Gözləyir</span>
+                    {% endif %}
+                </td>
+                <td>{{ e.received_at|date:"d.m.Y H:i" }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+        <div class="empty">
+            <p>Heç bir email yoxdur.</p>
+            <p style="margin-top: 10px;"><a href="{% url 'fetch_emails' %}" class="btn btn-primary">Emailləri Gətir</a></p>
+        </div>
+    {% endif %}
+{% endblock %}

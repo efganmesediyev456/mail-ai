@@ -1,0 +1,46 @@
+{% extends "inbox/base.html" %}
+
+{% block title %}{{ email.subject }}{% endblock %}
+
+{% block extra_css %}
+    .card { background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 24px; margin-bottom: 16px; }
+    .card h2 { font-size: 20px; margin-bottom: 12px; }
+    .meta { color: #5f6368; font-size: 13px; margin-bottom: 16px; display: flex; gap: 20px; }
+    .body-text { white-space: pre-wrap; line-height: 1.6; font-size: 15px; padding: 16px; background: #f8f9fa; border-radius: 6px; }
+    .reply-box { background: #e6f4ea; border-radius: 6px; padding: 16px; white-space: pre-wrap; line-height: 1.6; font-size: 14px; }
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 12px; font-weight: 500; background: #e8f0fe; color: #1a73e8; }
+    .actions { display: flex; gap: 10px; margin-top: 8px; }
+{% endblock %}
+
+{% block content %}
+    <div class="header">
+        <h1>Email Detalları</h1>
+        <a href="{% url 'email_list' %}" class="btn btn-back">Geri</a>
+    </div>
+
+    <div class="card">
+        <h2>{{ email.subject }}</h2>
+        <div class="meta">
+            <span><strong>Göndərən:</strong> {{ email.sender }}</span>
+            <span><strong>Tarix:</strong> {{ email.received_at|date:"d.m.Y H:i" }}</span>
+            <span><strong>Departament:</strong> <span class="badge">{{ email.department|default:"—" }}</span></span>
+        </div>
+        <div class="body-text">{{ email.body }}</div>
+
+        <div class="actions">
+            {% if not email.is_replied %}
+                <form method="post" action="{% url 'reply_email' email.pk %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-success">AI ilə Cavab Göndər</button>
+                </form>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if email.is_replied %}
+    <div class="card">
+        <h2>Göndərilən Cavab</h2>
+        <div class="reply-box">{{ email.reply_text }}</div>
+    </div>
+    {% endif %}
+{% endblock %}
