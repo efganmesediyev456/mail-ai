@@ -56,18 +56,18 @@ def get_system_prompt():
 # ----------------------------
 def classify_email(email_body):
     prompt = f"""
-Bu emaili aşağıdakı departamentlərdən birinə böl:
-1. Sales
-2. Support
-3. Accounting
-4. HR
-5. Agriculture
+                Bu emaili aşağıdakı departamentlərdən birinə böl:
+                1. Sales
+                2. Support
+                3. Accounting
+                4. HR
+                5. Agriculture
 
-Sadəcə department adını qaytar.
+                Sadəcə department adını qaytar. Başqa heç bir cümlə ilə cavab vermə. Sadəcə departament adlarını ver. Tapa bilməsən Support ilə əvəzlə
 
-Email:
-{email_body}
-"""
+                Email:
+                {email_body}
+    """
     response = client.chat.completions.create(
         model="gpt-4o",
         messages=[
@@ -77,18 +77,24 @@ Email:
         max_tokens=50,
         temperature=0,
     )
-    return response.choices[0].message.content.strip()
+    result = response.choices[0].message.content.strip()
+    valid_departments = ['Sales', 'Support', 'Accounting', 'HR', 'Agriculture']
+    for dept in valid_departments:
+        if dept.lower() in result.lower():
+            return dept
+    return 'Support'
 
 
 def generate_reply(email_body, sender_email):
     prompt = f"""
-Bu emailə cavab yaz.
-Göndərənin emaili: {sender_email}
-Göndərənə "Hörmətli {sender_email}" deyə müraciət et.
+                Bu emailə cavab yaz.
+                Göndərənin emaili: {sender_email}
+                Göndərənə "Hörmətli {sender_email}" deyə müraciət et.
+                İstifadəçinin mesajının dilini müəyyən et. Həmişə istifadəçi hansı dildə yazıbsa, eyni dildə cavab ver.
 
-Email:
-{email_body}
-"""
+                Email:
+                {email_body}
+            """
     response = client.chat.completions.create(
         model="gpt-4o",
         messages=[
@@ -117,34 +123,33 @@ def send_email(to_email, subject, body):
 # ----------------------------
 
 def email_list(request):
-    """Bütün gələn emaillərin siyahısı."""
     emails = IncomingEmail.objects.all()
     return render(request, "inbox/email_list.html", {"emails": emails})
 
 
 def email_detail(request, pk):
-    """Bir emailin detalları."""
     email_obj = get_object_or_404(IncomingEmail, pk=pk)
     return render(request, "inbox/email_detail.html", {"email": email_obj})
 
 
 def fetch_emails(request):
-    """IMAP-dan emailləri çək və DB-yə yaz."""
     try:
         mail = imaplib.IMAP4_SSL(IMAP_SERVER)
         mail.login(EMAIL_ADDRESS, EMAIL_PASSWORD)
         mail.select("inbox")
 
 #         status, message_nums = mail.search(None, "(UNSEEN)")
-        status, message_nums = mail.search(None, '(UNSEEN FROM "efqanesc@gmail.com")')
-
+#         status, message_nums = mail.search(None, '(UNSEEN FROM "efqanesc@gmail.com")')
+        status, message_nums = mail.search(
+            None,
+#             '(UNSEEN SINCE 26-Feb-2026 FROM "efqanesc@gmail.com")'
+            '(UNSEEN SINCE 26-Feb-2026)'
+        )
         nums = message_nums[0].split()
-
         count = 0
         for num in nums:
             status, data = mail.fetch(num, "(RFC822)")
             msg = email_lib.message_from_bytes(data[0][1])
-
             raw_subject = msg["subject"] or "(No subject)"
             decoded_parts = decode_header(raw_subject)
             subject = "".join(
@@ -164,17 +169,14 @@ def fetch_emails(request):
 
             # AI Classification
             department = classify_email(body)
-
             IncomingEmail.objects.create(
                 sender=sender,
                 subject=subject,
                 body=body,
                 department=department,
             )
-
             mail.store(num, "+FLAGS", "\\Seen")
             count += 1
-
         mail.logout()
         messages.success(request, f"{count} yeni email gətirildi.")
     except Exception as e:
@@ -184,7 +186,6 @@ def fetch_emails(request):
 
 
 def reply_email(request, pk):
-    """AI ilə cavab yarat və göndər."""
     email_obj = get_object_or_404(IncomingEmail, pk=pk)
 
     if request.method == "POST":
