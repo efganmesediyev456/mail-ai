@@ -175,6 +175,7 @@ def fetch_emails(request):
                 body=body,
                 department=department,
             )
+            mail.store(num, '+X-GM-LABELS', f'("{department}")')
             mail.store(num, "+FLAGS", "\\Seen")
             count += 1
         mail.logout()
